@@ -1,5 +1,8 @@
 function dx = legdynamics(t,x,P)
 
+% Joints = JntAngS01_TRIAL_06(:,1:4);     % [KneeLAng KneeRAng HipLRAng HipRAng]
+% Ankles = ElevAngS01_TRIAL_06(:,6:7);    % [AnkleLAng AnkleRAng]
+
 I1 = P(1);      I2 = P(2);      I3 = P(3); 
 m1 = m(4);      m2 = P(5);      m3 = P(6);      
 C1 = P(7);      C2 = P(8);      C3 = P(9);      
@@ -59,4 +62,4 @@ tau3 = g.*lc3.*m3.*cos(x(1)+x(2)+x(3))+0.1E1.*I3.*dx(4)+0.1E1.*lc3.^2.* ...
   lc3.^2.*m3.*dx(6)+0.1E1.*l2.*lc3.*m3.*sin(x(3)).*x(4).^2+0.1E1.* ...
   l1.*lc3.*m3.*sin(x(2)+x(3)).*x(4).^2+0.2E1.*l2.*lc3.*m3.*sin(x(3)) ...
   .*x(4).*x(5)+0.1E1.*l2.*lc3.*m3.*sin(x(3)).*x(5).^2;
-end
+% end
