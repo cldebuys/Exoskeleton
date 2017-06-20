@@ -1,24 +1,32 @@
 % function dx = legdynamics(t,x,P)
-clear all;
+clear all; close all; clc;
 jnt_data = load('JntAngS01_TRIAL_06');
 elev_data = load('ElevAngS01_TRIAL_06');
 
 Joints = jnt_data.JntAngS01_TRIAL_06(:,1:4);     % [KneeLAng KneeRAng HipLRAng HipRAng]
 Ankles = elev_data.ElevAngS01_TRIAL_06(:,6:7);    % [AnkleLAng AnkleRAng]
 
-x(1:3,:) = [Joints(:,3) Joints(:,1) Ankles(:,1)]'; %% make sure angles have correct reference
+% x(1:3,:) = ([Joints(:,3) Joints(:,1) Ankles(:,1)]*pi/180)'; %% make sure angles have correct reference and units
+x(1:3,:) = ([Joints(:,3) Joints(:,1) (Ankles(:,1)*0 + 90)]*pi/180)'; %% make sure angles have correct reference and units
 x(4,:) = gradient(x(1,:));  %
 x(5,:) = gradient(x(2,:));  % % velocities
 x(6,:) = gradient(x(3,:));  %
 
-P = ones(1,15); %%
-P = [30 15 5 20 10 2 1 1 1 0.3 0.2 0.05 0.15 0.1 0.025];
+gait = linspace(0,200,size(x,2))';
+% this human data is from a paper in the drive
+Mass = 73;
+length = [0.422 0.434 0.258];
+gyr = [0.33*length(1) 0.255*length(2) 0.257*length(3)];
+mass = [0.14*Mass 0.043*Mass 0.014*Mass];
+com = [0.41*length(1) 0.45*length(2) 0.44*length(3)];
 
-I1 = P(1);      I2 = P(2);      I3 = P(3); 
-m1 = P(4);      m2 = P(5);      m3 = P(6);      
-C1 = P(7);      C2 = P(8);      C3 = P(9);      
-l1 = P(10);     l2 = P(11);     l3 = P(12);
-lc1 = P(13);    lc2 = P(14);    lc3 = P(15);
+P = [30 15 5 20 10 2 1 1 1 0.3 0.2 0.05 0.15 0.1 0.025];
+inertia = mass.*gyr.^2 + mass.*com.^2;
+I1 = inertia(1);    I2 = inertia(2);    I3 = inertia(3); 
+m1 = mass(1);       m2 = mass(1);       m3 = mass(1);      
+C1 = P(7);          C2 = P(8);          C3 = P(9);      
+l1 = length(1);     l2 = length(2);     l3 = length(3);
+lc1 = com(1);       lc2 = com(2);       lc3 = com(3);
 g = 9.81;
 
 % q are relative joint angles (theta2 = q1 + q2)
@@ -30,8 +38,14 @@ dx(4,:) = gradient(dx(1,:)); %
 dx(5,:) = gradient(dx(2,:)); % % accelerations
 dx(6,:) = gradient(dx(3,:)); %
 
+% Passive stiffness and damping (healthy)
+K_hip = 21;
+K_knee = 3;
+B_hip = 3.5;
+B_knee = 0.04;
+
 % Joint torques (hip, knee, ankle)
-tau1 = g.*lc1.*m1.*cos(x(1,:))+g.*l1.*m2.*cos(x(1,:))+g.*l1.*m3.*cos(x(1,:))+ ...
+tau1 = (K_hip*x(1,:) + B_hip*x(4,:)) + g.*lc1.*m1.*cos(x(1,:))+g.*l1.*m2.*cos(x(1,:))+g.*l1.*m3.*cos(x(1,:))+ ...
   g.*lc2.*m2.*cos(x(1,:)+x(2,:))+g.*l2.*m3.*cos(x(1,:)+x(2,:))+g.*lc3.*m3.* ...
   cos(x(1,:)+x(2,:)+x(3,:))+0.1E1.*I1.*dx(4,:)+0.1E1.*I2.*dx(4,:)+0.1E1.*I3.* ...
   dx(4,:)+0.1E1.*l1.^2.*m1.*dx(4,:)+0.1E1.*l1.^2.*m2.*dx(4,:)+0.1E1.* ...
@@ -55,7 +69,7 @@ tau1 = g.*lc1.*m1.*cos(x(1,:))+g.*l1.*m2.*cos(x(1,:))+g.*l1.*m3.*cos(x(1,:))+ ..
   lc3.*m3.*sin(x(3,:)).*x(6,:).^2+(-0.1E1).*l1.*lc3.*m3.*sin(x(2,:)+x(3,:)) ...
   .*x(6,:).^2;
 
-tau2 = g.*lc2.*m2.*cos(x(1,:)+x(2,:))+g.*l2.*m3.*cos(x(1,:)+x(2,:))+g.*lc3.*m3.* ...
+tau2 = (K_knee*x(2,:) + B_knee*x(5,:)) + g.*lc2.*m2.*cos(x(1,:)+x(2,:))+g.*l2.*m3.*cos(x(1,:)+x(2,:))+g.*lc3.*m3.* ...
   cos(x(1,:)+x(2,:)+x(3,:))+0.1E1.*I2.*dx(4,:)+0.1E1.*I3.*dx(4,:)+0.1E1.* ...
   l2.^2.*m2.*dx(4,:)+0.1E1.*l2.^2.*m3.*dx(4,:)+0.1E1.*lc3.^2.*m3.*dx(4,:)+ ...
   0.1E1.*l1.*l2.*m2.*cos(x(2,:)).*dx(4,:)+0.1E1.*l1.*l2.*m3.*cos(x(2,:)).* ...
@@ -77,4 +91,28 @@ tau3 = g.*lc3.*m3.*cos(x(1,:)+x(2,:)+x(3,:))+0.1E1.*I3.*dx(4,:)+0.1E1.*lc3.^2.* 
   l1.*lc3.*m3.*sin(x(2,:)+x(3,:)).*x(4,:).^2+0.2E1.*l2.*lc3.*m3.*sin(x(3,:)) ...
   .*x(4,:).*x(5,:)+0.1E1.*l2.*lc3.*m3.*sin(x(3,:)).*x(5,:).^2;
 
+subplot(3,2,1)
+plot(gait,tau1)
+xlabel('Percent of Gait')
+ylabel('Hip Torque [Nm]')
+subplot(3,2,3)
+plot(gait,tau2)
+xlabel('Percent of Gait')
+ylabel('Knee Torque [Nm]')
+subplot(3,2,5)
+plot(gait,tau3)
+xlabel('Percent of Gait')
+ylabel('Ankle Torque [Nm]')
+subplot(3,2,2)
+plot(gait,x(1,:))
+xlabel('Percent of Gait')
+ylabel('Hip Angle [radians]')
+subplot(3,2,4)
+plot(gait,x(2,:))
+xlabel('Percent of Gait')
+ylabel('Knee Angle [radians]')
+subplot(3,2,6)
+plot(gait,x(3,:))
+xlabel('Percent of Gait')
+ylabel('Ankle Angle [radians]')
 % end
